@@ -7,7 +7,9 @@ import os
 from pathlib import Path
 from sqlalchemy.orm import scoped_session, sessionmaker
 from dbmap import write_media_to_db, TgUser, self_user
-from config import logger
+import logging
+
+logger = logging.getLogger(__name__)
 
 insta = Instaloader()
 
@@ -37,8 +39,11 @@ def insta_download_post(message:str,path:str=PATH,user:TgUser=self_user):
 			if 'mp4' in file:
 				files.remove(file[:-4] + '.jpg')
 		logger.info(f'Успешное скачивание: {shortcode}')
+
+		# Запись в базу данных
 		write_media_to_db(files, shortcode, text, user)
 		return True, files, text
+
 	except Exception as error:
 		logger.info(f'Не удалось скачать {shortcode}, ошибка: {error}')
 		return False, [], 'Ошибка: ' + str(error)

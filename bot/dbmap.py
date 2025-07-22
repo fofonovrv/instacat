@@ -1,19 +1,21 @@
 import os
 import re
 import datetime as dt
-from config import DB_STRING, logger
+from config import DB_STRING
 from sqlalchemy import create_engine, Column, Integer, Boolean, String, String, DateTime, ForeignKey, Text
 from sqlalchemy.orm import scoped_session, declarative_base, sessionmaker, relationship, Mapper
 from aiogram.types import Message
+import logging
+logger = logging.getLogger(__name__)
 
 Base = declarative_base()
 engine = create_engine(DB_STRING)
-
 session = scoped_session(sessionmaker(bind=engine))
 Base = declarative_base()
+
 Base.query = session.query_property()
-Base.metadata.create_all(bind=engine)
-admin_chat_id = '99129974'
+
+
 
 
 class TgUser(Base):
@@ -62,7 +64,6 @@ class MediaFile(Base):
 
 
 def write_media_to_db(files:list,shortcode:str,text:str,user:TgUser,):
-	session_db = scoped_session(sessionmaker(bind=engine))
 	for file in files:
 		media_file = MediaFile(
 			filename=file,
@@ -70,17 +71,14 @@ def write_media_to_db(files:list,shortcode:str,text:str,user:TgUser,):
 			text=text,
 			user=user.id
 		)
-		session_db.add(media_file)
-	session_db.expunge_all()
-	session_db.commit()
+		session.add(media_file)
+	session.commit()
 	
 def get_media_from_db(message:str):
 	regex_filter_url = '(?:https?:\/\/)?(?:www.)?instagram.com\/?([a-zA-Z0-9\.\_\-]+)?\/([p]+)?([reel]+)?([tv]+)?([stories]+)?\/([a-zA-Z0-9\-\_\.]+)\/?([0-9]+)?'
 	shortcode = re.split(regex_filter_url, message)[6]
-	session_db = scoped_session(sessionmaker(bind=engine))
-	files = session_db.query(MediaFile).filter(MediaFile.shortcode==shortcode)
-	session_db.expunge_all()
-	session_db.commit()
+	files = session.query(MediaFile).filter(MediaFile.shortcode==shortcode)
+	session.commit()
 	if files.count() != 0:
 		return True, [f.filename for f in files], files[0].text
 	else:
@@ -91,21 +89,20 @@ def get_user(message: Message) -> TgUser:
 	first_name = message.from_user.first_name
 	last_name = message.from_user.last_name
 	username = message.from_user.username
-	session_db = scoped_session(sessionmaker(bind=engine))
-	user = session_db.query(TgUser).filter(TgUser.tg_id==tg_id).scalar()
+	user = session.query(TgUser).filter(TgUser.tg_id==tg_id).scalar()
 	if not user:
 		logger.info(f'Пользователь {username} ({first_name} {last_name}) не найден в БД')
 		user = TgUser(tg_id=tg_id,
 					  username=username,
 					  first_name=first_name,
 					  last_name=last_name)
-		session_db.add(user)
+		session.add(user)
 		logger.info(f'Создан пользователь: {user}')
-		session_db.expunge_all()
-		session_db.commit()
+		session.commit()
 	return user
 
 
+Base.metadata.create_all(bind=engine)
 self_user = session.query(TgUser).filter(TgUser.tg_id==0).scalar()
 admin_user = session.query(TgUser).filter(TgUser.id==1).scalar()
 if not self_user:
@@ -114,13 +111,17 @@ session.add(self_user)
 session.commit()
 
 def write_msg_to_db(text:str,from_user:TgUser=self_user, to_user:TgUser=self_user,chat_id:int=0):
-	session_db = scoped_session(sessionmaker(bind=engine))
 	message = TgMessage(
 		from_user=from_user.id,
 		to_user=to_user.id,
 		chat_id=chat_id,text=text, 
 		date=dt.datetime.now()
 	)
-	session_db.add(message)
-	session_db.expunge_all()
-	session_db.commit()
+	session.add(message)
+	session.commit()
+
+def get_table_counts():
+	count_users = session.query(TgUser).count()
+	count_messages = session.query(TgMessage).count()
+	count_media = session.query(MediaFile).count()
+	return count_users, count_messages, count_media

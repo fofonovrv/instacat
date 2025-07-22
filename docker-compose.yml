@@ -11,9 +11,9 @@ services:
     env_file: .env
     # depends_on:
     #   - db_kot
-    networks:
-      - default
-      - db-net
+    # networks:
+    #   - default
+    #   - db-net
   # db_kot:
   #   container_name: db_kot
   #   image: postgres
@@ -56,11 +56,11 @@ services:
   #       limits:
   #         cpus: '1'
   #         memory: 4G
-    networks:
-      - db-net
-networks:
-  default:
-    driver: bridge
-  db-net:
-    external:
-      name: db-net
+    # networks:
+    #   - db-net
+# networks:
+#   default:
+#     driver: bridge
+#   db-net:
+#     external:
+#       name: db-net
